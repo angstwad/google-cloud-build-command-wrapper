@@ -1,0 +1,10 @@
+timeout: "900"
+steps:
+  - name: gcr.io/angstwad-gcbcw/gcbcw
+    args: ["init"]
+
+  - name: gcr.io/angstwad-gcbcw/gcbcw
+    entrypoint: gcbcw
+    # Notice that the command below uses variable substitution to inject the requisite project and build IDs
+    # For more information, see: https://cloud.google.com/cloud-build/docs/configuring-builds/substitute-variable-values#using_default_substitutions
+    args: ["--before-timeout", "2m", "$PROJECT_ID", "$BUILD_ID", "--", "terraform", "apply", "-auto-approve"]
