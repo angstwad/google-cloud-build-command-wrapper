@@ -62,3 +62,7 @@ Usage of gcbcw: [flags ...] PROJECT_ID BUILD_ID -- COMMAND [command-flags ...]
       --help                    print this usage and exit
       --signal string           signal to send to wrapped process (default "SIGTERM")
 ```
+
+## Disclaimer
+
+This is not an official Google product.
