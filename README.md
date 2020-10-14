@@ -23,7 +23,7 @@ Google Cloud Builds have a timeout value, which by default is (currently) 10 min
  Building for Cloud Build:
  
 ```
-GOOS=linux GOARCH=amd64 build -o gcbcw github.com/angstwad/google-cloud-build-command-wrapper 
+GOOS=linux GOARCH=amd64 go build -o gcbcw github.com/angstwad/google-cloud-build-command-wrapper
 ```
 
 Cloud Build [steps](https://cloud.google.com/cloud-build/docs/build-config#build_steps) are simply container image tags, so to use it, you'll need to drop the compiled binary inside a container image and push it to a registry of your choice.  Since the canonical use case is in conjunction with Terraform, we'll just need a `Dockerfile` that drops the binary in a [Terraform image](https://hub.docker.com/r/hashicorp/terraform/):
