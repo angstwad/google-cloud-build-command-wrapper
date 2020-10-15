@@ -169,7 +169,7 @@ func parseArgs() (int, error) {
 	pflag.StringVarP(&timeoutSigStr, "signal", "s", "SIGTERM", "signal to send to wrapped process")
 	pflag.StringVarP(&timeoutStr, "before-timeout", "t", "60s", "time before build timeout to send designated signal; ex: 30s, 5m")
 	pflag.IntVarP(&timeoutExitCode, "timeout-exitcode", "e", 0, "non-zero exit code used if process is timed out; overrides process exit code")
-	pflag.BoolVarP(&quiet, "quiet", "q", false, "suppress all output except process stdin and stdout")
+	pflag.BoolVarP(&quiet, "quiet", "q", false, "suppress all output except process stdout and stderr")
 	pflag.BoolVarP(&verbose, "verbose", "v", false, "enable additional logging")
 	help := pflag.BoolP("help", "h", false, "print this usage and exit")
 
