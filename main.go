@@ -244,7 +244,7 @@ func main() {
 			os.Exit(exitCode)
 		} else {
 			if !quiet {
-				ErrorLogger.Fatalln(err.Error())
+				ErrorLogger.Println(err.Error())
 			}
 
 			if processTimedOut && timeoutExitCode != 0 {
