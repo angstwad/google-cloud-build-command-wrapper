@@ -14,7 +14,7 @@ This was written with a very narrow use case in mind: wrapping Terraform command
 
 ### But Why?
 
-Google Cloud Builds have a timeout value, which by default is (currently) 10 minutes.  When this timeout for the build (and specifically for the build job itself) is reached, the build service sends a SIGTERM, followed by a very brief pause, and the container in whcih the step is running is force-terminated.  This has serious consequences for a stateful application like Terraform, which often needs to terminate gracefully in order to terminate its operations, update and write state, and to release the state lock. If a job is force-terminated, this cannot happen and can often have dire consequences, like requiring manual, human intervention to recover the state and manually delete the lock.
+Google Cloud Builds have a timeout value, which by default is (currently) 10 minutes.  When this timeout for the build (and specifically for the build job itself) is reached, the build service sends a SIGTERM, followed by a very brief pause, and the container in which the step is running is force-terminated.  This has serious consequences for a stateful application like Terraform, which needs to terminate gracefully in order to stop its operations, update and write state, and to release the state lock. If a job is force-terminated, this cannot happen and can often have dire consequences, like orphaning resources, requiring human intervention, and a manual release of the state lock.
 
 ## Use
 
@@ -42,7 +42,7 @@ docker build -t gcr.io/angstwad-gcbcw/gcbcw:latest
 docker push gcr.io/angstwad-gcbcw/gcbcw:latest
 ```
 
-Last, use the image in your Cloud Build [configuration](https://cloud.google.com/cloud-build/docs/build-config), which is often `cloudbuild.yaml`. An [example](example/cloudbuild.yaml) has been provided.  Because the Terraform image was defined with a custom `entrypoint`, you will need to override this in your build config with the [entrypoint](https://cloud.google.com/cloud-build/docs/build-config#entrypoint) flag.  Below, I have provided an example build step, which wraps the command `terraform apply -auto-approve`, signalling Terraform 2 minutes before the build job's scheduled timeout.
+Last, use the image in your Cloud Build [configuration](https://cloud.google.com/cloud-build/docs/build-config). An [example](example/cloudbuild.yaml) has been provided.  Because Hashicorp's Terraform image has been defined with a custom `entrypoint`, you will need to override this in your build config with the [entrypoint](https://cloud.google.com/cloud-build/docs/build-config#entrypoint) flag.  Below I have provided an example build step which wraps the command `terraform apply -auto-approve`, signaling Terraform 2 minutes before the build job's scheduled timeout.
 
 The below example uses [default variable substitutions](https://cloud.google.com/cloud-build/docs/configuring-builds/substitute-variable-values#using_default_substitutions) to populate the required project and build ID parameters.
 
