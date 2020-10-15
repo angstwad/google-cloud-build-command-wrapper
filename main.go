@@ -31,16 +31,21 @@ import (
 )
 
 var (
-	timeoutSigStr string
-	timeoutStr    string
-	timeoutDur    time.Duration
-	projectId     string
-	buildId       string
-	cmdName       string
-	cmdArgs       []string
-	InfoLogger    *log.Logger
-	ErrorLogger   *log.Logger
-	validSignals  = map[string]os.Signal{
+	timeoutSigStr   string
+	timeoutStr      string
+	timeoutDur      time.Duration
+	verbose         bool
+	quiet           bool
+	timeoutExitCode int
+	processTimedOut bool
+	projectId       string
+	buildId         string
+	cmdName         string
+	cmdArgs         []string
+	InfoLogger      *log.Logger
+	WarningLogger   *log.Logger
+	ErrorLogger     *log.Logger
+	validSignals    = map[string]os.Signal{
 		"SIGABRT":   syscall.SIGABRT,
 		"SIGALRM":   syscall.SIGALRM,
 		"SIGBUS":    syscall.SIGBUS,
@@ -74,7 +79,7 @@ var (
 	}
 )
 
-type UserRequestedHelp struct {}
+type UserRequestedHelp struct{}
 
 func (e *UserRequestedHelp) Error() string {
 	return "user requested help"
@@ -88,7 +93,9 @@ func runCommand(cmdName string, cmdArgs []string, timeout time.Duration, sigChan
 	done := make(chan error, 1)
 
 	go func() {
-		InfoLogger.Printf("Running command: %v %v", cmdName, strings.Join(cmdArgs, " "))
+		if verbose {
+			InfoLogger.Printf("Running command: %v %v", cmdName, strings.Join(cmdArgs, " "))
+		}
 		done <- cmd.Run()
 	}()
 
@@ -98,20 +105,29 @@ func runCommand(cmdName string, cmdArgs []string, timeout time.Duration, sigChan
 	case err := <-done:
 		return err
 	case recdSig := <-sigChan:
-		InfoLogger.Printf("Parent process received signal %v; forwarding to child command process\n", recdSig.String())
+		if !quiet {
+			WarningLogger.Printf("Parent process received signal %v; forwarding to child command process\n", recdSig.String())
+		}
 		err = cmd.Process.Signal(recdSig)
 	case <-time.After(timeout):
-		InfoLogger.Printf("Timeout has been reached; sending %v signal to process", timeoutSigStr)
+		if !quiet {
+			WarningLogger.Printf("Timeout has been reached; sending %v signal to process", timeoutSigStr)
+		}
+		processTimedOut = true
 		err = cmd.Process.Signal(validSignals[timeoutSigStr])
 	}
 
-	InfoLogger.Printf("Waiting on process to exit...")
-	<-done
+	if verbose {
+		InfoLogger.Printf("Waiting on process to exit...")
+	}
+	err = <-done
 	return err
 }
 
 func getBuildSignalTime(ctx context.Context) (*time.Time, error) {
-	InfoLogger.Println("Getting build info from Cloud Build API")
+	if verbose {
+		InfoLogger.Println("Getting build info from Cloud Build API")
+	}
 
 	c, err := cloudbuild.NewClient(ctx)
 	if err != nil {
@@ -135,9 +151,11 @@ func getBuildSignalTime(ctx context.Context) (*time.Time, error) {
 		return nil, errors.New(fmt.Sprintf("invalid signal time '%v' for build ID '%v': occurs in the past", signalTime, buildId[:8]))
 	}
 
-	InfoLogger.Printf("Cloud Build timeout is %v seconds\n", resp.Timeout.Seconds)
-	InfoLogger.Printf("Cloud Build container will be terminated at %v\n", time.Unix(buildTimeoutTime, 0))
-	InfoLogger.Printf("Process will be signaled at %v\n", signalTime)
+	if verbose {
+		InfoLogger.Printf("Cloud Build timeout is %v seconds\n", resp.Timeout.Seconds)
+		InfoLogger.Printf("Cloud Build container will be terminated at %v\n", time.Unix(buildTimeoutTime, 0))
+		InfoLogger.Printf("Process will be signaled at %v\n", signalTime)
+	}
 
 	return &signalTime, nil
 }
@@ -148,9 +166,12 @@ func parseArgs() (int, error) {
 		pflag.CommandLine.PrintDefaults()
 	}
 
-	pflag.StringVar(&timeoutSigStr, "signal", "SIGTERM", "signal to send to wrapped process")
-	pflag.StringVar(&timeoutStr, "before-timeout", "60s", "time before build timeout to send designated signal ex: 30s, 5m")
-	help := pflag.Bool("help", false, "print this usage and exit")
+	pflag.StringVarP(&timeoutSigStr, "signal", "s", "SIGTERM", "signal to send to wrapped process")
+	pflag.StringVarP(&timeoutStr, "before-timeout", "t", "60s", "time before build timeout to send designated signal; ex: 30s, 5m")
+	pflag.IntVarP(&timeoutExitCode, "timeout-exitcode", "e", 0, "non-zero exit code used if process is timed out; overrides process exit code")
+	pflag.BoolVarP(&quiet, "quiet", "q", false, "suppress all output except process stdin and stdout")
+	pflag.BoolVarP(&verbose, "verbose", "v", false, "enable additional logging")
+	help := pflag.BoolP("help", "h", false, "print this usage and exit")
 
 	pflag.Parse()
 
@@ -182,6 +203,7 @@ func parseArgs() (int, error) {
 
 func main() {
 	InfoLogger = log.New(os.Stdout, "INFO: ", log.LstdFlags)
+	WarningLogger = log.New(os.Stdout, "WARNING: ", log.LstdFlags)
 	ErrorLogger = log.New(os.Stderr, "ERROR: ", log.LstdFlags)
 
 	if exitCode, err := parseArgs(); err != nil {
@@ -210,12 +232,34 @@ func main() {
 	if err := runCommand(cmdName, cmdArgs, adjustedTimeout, caughtSigsChan); err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			exitCode := exitError.ExitCode()
-			ErrorLogger.Printf("Process exited with non-zero exit code: %d\n", exitCode)
+
+			if !quiet {
+				WarningLogger.Printf("Process exited with non-zero exit code: %d\n", exitCode)
+			}
+
+			if processTimedOut && timeoutExitCode != 0 {
+				os.Exit(timeoutExitCode)
+			}
+
 			os.Exit(exitCode)
 		} else {
-			ErrorLogger.Fatalln(err.Error())
+			if !quiet {
+				ErrorLogger.Fatalln(err.Error())
+			}
+
+			if processTimedOut && timeoutExitCode != 0 {
+				os.Exit(timeoutExitCode)
+			}
+
+			os.Exit(1)
 		}
 	} else {
-		InfoLogger.Println("Process exited successfully")
+		if verbose {
+			InfoLogger.Println("Process exited successfully")
+		}
+
+		if processTimedOut && timeoutExitCode != 0 {
+			os.Exit(timeoutExitCode)
+		}
 	}
 }

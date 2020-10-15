@@ -58,9 +58,12 @@ A self-documenting `--help` command is available to show flags and parameters.
 
 ```
 Usage of gcbcw: [flags ...] PROJECT_ID BUILD_ID -- COMMAND [command-flags ...]
-      --before-timeout string   time before build timeout to send designated signal ex: 30s, 5m (default "60s")
-      --help                    print this usage and exit
-      --signal string           signal to send to wrapped process (default "SIGTERM")
+  -t, --before-timeout string   time before build timeout to send designated signal; ex: 30s, 5m (default "60s")
+  -h, --help                    print this usage and exit
+  -q, --quiet                   suppress all output except process stdin and stdout
+  -s, --signal string           signal to send to wrapped process (default "SIGTERM")
+  -e, --timeout-exitcode int    non-zero exit code used if process is timed out; overrides process exit code
+  -v, --verbose                 enable additional logging
 ```
 
 ## Disclaimer
