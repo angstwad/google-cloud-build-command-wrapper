@@ -4,7 +4,7 @@ This is a thin command wrapper for use inside a Google Cloud Build step.
 
 ## Use Case
 
-This was written with a very narrow use case in mind: wrapping commands and signaling them ahead of a Cloud Build job timeout.  It performs the following steps:
+This was written with a very narrow use case in mind: wrapping commands, signaling the wrapped process ahead of a Cloud Build job timeout.  It performs the following steps:
 
 1. Given a project and build ID, it retrieves the build state from the Cloud Build API
 1. It reads the time at which the build will be force-terminated, looks at the `--before-timeout` value (default: 60 seconds), and sets a timer triggering at _build termination time_ minus the _before timeout_ value.
