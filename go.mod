@@ -1,4 +1,4 @@
-module github.com/angstwad/google-cloud-build-command-wrapper
+module gcbcw
 
 go 1.14
 
